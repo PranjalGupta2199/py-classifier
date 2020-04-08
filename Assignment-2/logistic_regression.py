@@ -6,15 +6,29 @@ import pickle
 
 class LogisticRegression:
 
-    def __init__(self, n_init, n_epoch, learning_rate):
+    def __init__(self, n_init, n_epoch, learning_rate, beta, reg=None, initializer='zeros'):
         self.n_init = n_init
         self.n_epoch = n_epoch
         self.ieta = learning_rate
+        self.beta = beta
+        self.initializer = initializer
+        self.reg = "None" if reg is None else reg.capitalize()
 
     def _init_weight(self, n_feature):
-        # TODO: Add different initializer
-        self.w = np.zeros((1, n_feature))
-        self.b = 0.0
+        if self.initializer == 'zeros':
+            self.w = np.zeros((1, n_feature))
+            self.b = 0.0
+        elif self.initializer == 'random':
+            self.w = np.random.random((1, n_feature))
+            self.b = np.random.random((1)).item()
+        elif self.initializer == 'uniform':
+            self.w = np.random.uniform(0, 1, (1, n_feature))
+            self.b = np.random.uniform(0, 1, (1)).item()
+        elif self.initializer == 'gaussian':
+            self.w = np.random.normal(0, 1, (1, n_feature))
+            self.b = np.random.normal(0, 1, (1)).item()
+        else:
+            raise RuntimeError("No Initialiser Found !!")
 
     def _load(self, path):
         data = np.loadtxt(path, delimiter=',')
@@ -45,10 +59,18 @@ class LogisticRegression:
 
             pos_class_loss = Y * np.log(output)
             neg_class_loss = (1 - Y) * np.log(1 - output)
-            cost = (-1/m)*np.sum(pos_class_loss + neg_class_loss)
 
-            dw = (-1/m)*np.dot(Y - output, X)
-            db = (-1/m)*np.sum(Y - output)
+            cost = (1/m)*np.sum(-pos_class_loss - neg_class_loss)
+            dw = (1/m)*np.dot(output - Y, X)
+            db = (1/m)*np.sum(output - Y)
+
+            if self.reg == 'L1':
+                cost += (self.beta/m)*np.sum(np.abs(self.w))
+                dw +=  (self.beta/m)*np.sign(self.w)
+
+            elif self.reg == 'L2':
+                cost += (self.beta/m)*np.sum(np.square(self.w))
+                dw += (self.beta/m)*self.w
 
             self.w -= dw*self.ieta
             self.b -= db*self.ieta
@@ -62,12 +84,11 @@ class LogisticRegression:
         X_train, X_test, Y_train, Y_test = self._load(path)
         Y_train = Y_train.reshape((1,-1))
         Y_test = Y_test.reshape((1,-1))
-        print (X_train.shape, X_test.shape, Y_train.shape, Y_test.shape)
         _, n_feature = X_train.shape
 
         curr_best = -1
         for iter_ in range(self.n_init):
-            print ("Running Model {}".format(iter_))
+            print ("Running Model {}".format(iter_ + 1))
             self._init_weight(n_feature)
             cost = self._train(X_train, Y_train, print_after)
 
@@ -86,7 +107,15 @@ class LogisticRegression:
 
     @property
     def settings(self):
-        return ("W: {}\nBias: {}".format(self.w, self.b))
+        string = 'Model Parameters : \n'
+        string += '\tIntialisation Techinque : \'{}\'\n'.format(self.initializer)
+        string += '\tRegularisation Used : {}\n'.format(self.reg)
+        string += '\tWeight (W): {}\n'.format(self.w)
+        string += '\tBias (b): {}\n'.format(self.b)
+        string += 'Learning rates : \n'
+        string += '\t Alpha : {}\n'.format(self.ieta)
+        string += '\t Beta : {}\n'.format(self.beta)
+        return string
 
     def _predict(self, Y):
         labels = np.zeros(Y.shape)
@@ -107,6 +136,6 @@ class LogisticRegression:
 
 
 if __name__ == '__main__':
-    reg = LogisticRegression(2, 2000, 0.01)
+    reg = LogisticRegression(10, 2000, 0.01, 0.01, 'l2', 'gaussian')
     reg.fit('./data_banknote_authentication.txt', 100)
     print (reg.settings)
