@@ -76,7 +76,8 @@ class LogisticRegression:
             self.b -= db*self.ieta
 
             if epoch % print_after == 0:
-                print ("\tEpoch {:4}/{} ---> {:.4f} | Accuracy: ---> {:.4f}".format(epoch, self.n_epoch, cost, self.score(Y, output)))
+                print ("\tEpoch {:4}/{} ---> {:.4f} | Accuracy: ---> {:.4f}".format(
+                        epoch, self.n_epoch, cost, self.score(Y, output)))
 
         return cost
 
