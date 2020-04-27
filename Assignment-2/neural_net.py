@@ -7,6 +7,7 @@ import numpy as np
 from numpy.random import uniform, random, normal
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
 
 
 class ActivationFunction(ABC):
@@ -128,8 +129,8 @@ class Layer:
     def __str__(self, indent='\t'):
         string = ''
         string += "({})\n".format(__class__.__name__)
+        string += indent * 2 + "Transforms : {} ---> {}\n".format(self.input_dim, self.output_dim)
         string += indent * 2 + "Weight : {}\n".format(self.w.shape)
-        string += indent * 2 + "Output dim : {}\n".format(self.output_dim)
         string += indent * 2 + "Bias : {}\n".format(self.b.shape)
         string += indent * 2 + "Activation : {}\n".format(self.activation_fn.__class__.__name__)
         return string
@@ -190,6 +191,15 @@ class NeuralNet:
         # print ("\t\tprev a {}".format(X.shape))
         self.layers[0].backward(X, grad, self.lamda)
 
+    def classify(self, y_pred):
+        return np.array([1 if i > 0.5 else 0 for i in y_pred])
+
+    def score(self, y_true, y_pred):
+        return accuracy_score(y_true, y_pred)*100
+
+    def error(self, y_true, y_pred):
+        return np.sum(np.square(y_true - y_pred)).item()
+
     @property
     def settings(self):
         string = 'Neural Net Architecture:\n'
@@ -197,15 +207,19 @@ class NeuralNet:
             string += "\t{}: {}".format(idx, layer.__str__())
         return string
 
+    def save(self, path):
+        with open(path, 'wb') as f:
+            pickle.dump(self, f)
+
     def __str__(self):
         return self.settings
 
 
 def train():
-    n = NeuralNet(
+    nn = NeuralNet(
             learning_rate=0.1,
-            layer_dims=[10, 1],
-            actn_fn=["sigmoid"] * 4 ,
+            layer_dims=[10, 5, 1],
+            actn_fn=["sigmoid"] * 10 ,
             initializer='uniform'
     )
     data = pd.read_csv('housepricedata.csv')
@@ -213,17 +227,39 @@ def train():
     X = StandardScaler().fit_transform(data[headers[:-1]])[:100, :]
     Y = data[headers[-1]].to_numpy().reshape(-1, 1)[:100, :]
 
+    n_init = 10
     n_epoch = 50000
-    print_batch = 1000
-    for n_iter in range(n_epoch):
-        y_pred = n(X)
-        # print (y_pred.shape)
-        n.backward(X, Y, y_pred)
-        if n_iter % print_batch == 0:
-            print (np.sum(np.square(Y - y_pred)))
+    print_after = 1000
+    curr_best = -1
+    save_path = 'nn_model.pickle'
 
-    for j, k in zip(Y,n(X)):
-        print (j, k)
+    for _iter in range(n_init):
+        print ("Running Model {}: ".format(_iter + 1))
+        for _epoch in range(n_epoch):
+            output = nn(X)
+            nn.backward(X, Y, output)
+
+            if (_epoch + 1) % print_after == 0:
+                y_pred = nn.classify(output.reshape(-1))
+                error_ = nn.error(Y, output)
+                score = nn.score(Y.reshape(-1), y_pred)
+                print ("\tEpoch {:10}/{} ---> {:.4f} | Accuracy: ---> {:.4f}".format(
+                        _epoch + 1, n_epoch, error_, score))
+
+
+        y_pred = nn.classify(nn(X).reshape(-1))
+        curr_result = nn.error(Y, y_pred.reshape(-1, 1))
+        if _iter == 0 or curr_result < curr_best:
+            print ("saving")
+            curr_best = curr_result
+            nn.save(save_path)
+
+    print ("Loading best model ...")
+    nn = NeuralNet.load_state_dict(save_path)
+    print (nn)
+    y_pred = nn.classify(nn(X).reshape(-1))
+    print ("Accuracy : {}".format(nn.score(Y.reshape(-1), y_pred)))
+
 
 if __name__ == "__main__":
     train()
