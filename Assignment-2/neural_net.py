@@ -8,6 +8,7 @@ from numpy.random import uniform, random, normal
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
 
 
 class ActivationFunction(ABC):
@@ -201,7 +202,7 @@ class NeuralNet:
         return self.settings
 
 
-def train():
+def train(plot=False):
     data = pd.read_csv('housepricedata.csv')
     headers = data.columns
     X_train, X_test, Y_train, Y_test = train_test_split(data[headers[:-1]],
@@ -216,8 +217,13 @@ def train():
     curr_best = -1
     save_path = 'nn_model.pickle'
 
+    errors_to_plot = []
+    accuracy_to_plot = []
+
     for _iter in range(n_init):
         print ("Running Model {}: ".format(_iter + 1))
+        temp_errors = []
+        temp_accuracy = []
         nn = NeuralNet(
                 learning_rate=0.8,
                 layer_dims=[10, 5, 5, 1],
@@ -226,6 +232,8 @@ def train():
         )
         for _epoch in range(n_epoch):
             output = nn(X)
+            temp_errors.append(nn.error(Y, nn.layers[-1].activation_fn.prev))
+            temp_accuracy.append(nn.score(Y.reshape(-1), nn.classify(output.reshape(-1))))
             nn.backward(X, Y, output)
 
             if (_epoch + 1) % print_after == 0:
@@ -242,6 +250,23 @@ def train():
             print ("Saving")
             curr_best = curr_result
             nn.save(save_path)
+            errors_to_plot = temp_errors
+            accuracy_to_plot = temp_accuracy
+
+    if plot:
+        plt.figure(1)
+        plt.plot(range(1, n_epoch + 1), errors_to_plot, c='b')
+        plt.xlabel('Number of Epochs')
+        plt.ylabel('Binary Cross Entropy Loss')
+        plt.title('Loss Function vs Epochs')
+        plt.savefig('./error_plot.png')
+
+        plt.figure(2)
+        plt.plot(range(1, n_epoch + 1), accuracy_to_plot, c='r')
+        plt.xlabel('Number of Epochs')
+        plt.ylabel('Accuracy %')
+        plt.title('Accuracy vs Epochs')
+        plt.savefig('./accuracy_plot.png')
 
     print ("Loading best model ...")
     nn = NeuralNet.load_state_dict(save_path)
@@ -254,4 +279,4 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    train(True)
