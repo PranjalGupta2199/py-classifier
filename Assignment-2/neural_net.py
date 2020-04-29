@@ -263,7 +263,7 @@ class NeuralNet:
         return self.settings
 
 
-def train(plot=False):
+def train(lr, plot=False):
     """Training Function"""
     data = pd.read_csv('housepricedata.csv')
     headers = data.columns
@@ -274,7 +274,7 @@ def train(plot=False):
     Y = Y_train.to_numpy().reshape(1, -1)
 
     n_init = 10
-    n_epoch = 1000
+    n_epoch = 5000
     print_after = 1000
     curr_best = -1
     save_path = 'nn_model.pickle'
@@ -287,7 +287,7 @@ def train(plot=False):
         temp_errors = []
         temp_accuracy = []
         nn = NeuralNet(
-                learning_rate=0.1,
+                learning_rate=lr,
                 layer_dims=[10, 5, 5, 1],
                 actn_fn=['tanh', 'relu', 'sigmoid'],
                 initializer='gaussian'
@@ -343,6 +343,22 @@ def train(plot=False):
     print ("Accuracy : {}".format(score['accuracy']))
     print ("F1-Score : {}".format(score['f1-score']))
 
+    return scores['accuracy']
+
+def hyper_parameter_tuning():
+    lr = [0.1*i for i in range(1, 4)]
+    score = []
+    for i in lr:
+        score.append(train(i))
+
+    plt.figure()
+    plt.plot(lr, score, c='r')
+    plt.xlabel('Learning Rate')
+    plt.ylabel('Accuracy %')
+    plt.title('Accuracy vs Learning Rate')
+    plt.savefig('./neural_net_param_tune.png')
+
 
 if __name__ == "__main__":
-    train(True)
+    # train(True)
+    hyper_parameter_tuning()
