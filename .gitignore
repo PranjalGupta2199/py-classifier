@@ -5,7 +5,7 @@ __pycache__/
 .vscode/
 *.npy
 *.pickle
-
+*.png
 # C extensions
 *.so
 
